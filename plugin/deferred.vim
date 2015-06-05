@@ -17,18 +17,126 @@ endif
 let s:DeferredCount = 0
 let s:DeferredCommands = []
 
+" TODO: Populate this list dynamically.
+
+" Autocmd Events {{{
+
+let s:InternalAutocmdEvents = [
+            \ 'BufAdd',
+            \ 'BufCreate',
+            \ 'BufDelete',
+            \ 'BufEnter',
+            \ 'BufFilePost',
+            \ 'BufFilePre',
+            \ 'BufHidden',
+            \ 'BufLeave',
+            \ 'BufNew',
+            \ 'BufNewFile',
+            \ 'BufRead',
+            \ 'BufReadPost',
+            \ 'BufReadCmd',
+            \ 'BufReadPre',
+            \ 'BufUnload',
+            \ 'BufWinEnter',
+            \ 'BufWinLeave',
+            \ 'BufWipeout',
+            \ 'BufWrite',
+            \ 'BufWriteCmd',
+            \ 'BufWritePost',
+            \ 'CmdUndefined',
+            \ 'CmdwinEnter',
+            \ 'CmdwinLeave',
+            \ 'ColorScheme',
+            \ 'CompleteDone',
+            \ 'CursorHold',
+            \ 'CursorHoldI',
+            \ 'CursorMoved',
+            \ 'CursorMovedI',
+            \ 'EncodingChanged',
+            \ 'FileAppendCmd',
+            \ 'FileAppendPost',
+            \ 'FileAppendPre',
+            \ 'FileChangedRO',
+            \ 'FileChangedShell',
+            \ 'FileChangedShellPost',
+            \ 'FileEncoding',
+            \ 'FileReadCmd',
+            \ 'FileReadPost',
+            \ 'FileReadPre',
+            \ 'FileType',
+            \ 'FileWriteCmd',
+            \ 'FileWritePost',
+            \ 'FileWritePre',
+            \ 'FilterReadPost',
+            \ 'FilterReadPre',
+            \ 'FilterWritePost',
+            \ 'FilterWritePre',
+            \ 'FocusGained',
+            \ 'FocusLost',
+            \ 'FuncUndefined',
+            \ 'GUIEnter',
+            \ 'GUIFailed',
+            \ 'InsertChange',
+            \ 'InsertCharPre',
+            \ 'InsertEnter',
+            \ 'InsertLeave',
+            \ 'MenuPopup',
+            \ 'QuickFixCmdPre',
+            \ 'QuickFixCmdPost',
+            \ 'QuitPre',
+            \ 'RemoteReply',
+            \ 'SessionLoadPost',
+            \ 'ShellCmdPost',
+            \ 'ShellFilterPost',
+            \ 'SourcePre',
+            \ 'SourceCmd',
+            \ 'SpellFileMissing',
+            \ 'StdinReadPost',
+            \ 'StdinReadPre',
+            \ 'SwapExists',
+            \ 'Syntax',
+            \ 'TabEnter',
+            \ 'TabLeave',
+            \ 'TermChanged',
+            \ 'TermResponse',
+            \ 'TextChanged',
+            \ 'TextChangedI',
+            \ 'User',
+            \ 'UserGettingBored',
+            \ 'VimEnter',
+            \ 'VimLeave',
+            \ 'VimLeavePre',
+            \ 'VimResized',
+            \ 'WinEnter',
+            \ 'WinLeave'
+            \ ]
+
+" }}}
+
 function! s:DeferCommandImpl(events, command)
 
-    let l:ID = s:DeferredCount
-    let s:DeferredCount += 1
+    for event in events
 
-    let GroupName = "Deferred_" . l:ID
-    let DeleteCommand = join(['autocmd!', GroupName, a:events, '*'], ' ')
+        let l:ID = s:DeferredCount
+        let s:DeferredCount += 1
 
-    execute "augroup " . GroupName
-    execute "   autocmd!"
-    execute "   autocmd " . Events . " * " . Command . " | " . DeleteCommand
-    execute "augroup end"
+        let MaybeUser = ''
+        if !count(s:InternalAutocmdEvents, event)
+            let MaybeUser = 'User'
+        endif
+
+        let GroupName = "Deferred_" . l:ID
+        let AutoCommand = MaybeUser . " " . event . " * " . Command
+        let DeleteCommand = join(['autocmd!', MaybeUser, GroupName, a:events, '*'], ' ')
+
+        echomsg AutoCommand
+
+        execute "augroup " . GroupName
+        execute "   autocmd!"
+        execute "   autocmd " . AutoCommand . " | " . DeleteCommand
+        execute "augroup end"
+
+    endfor
 
 endfunction
 
@@ -38,7 +146,7 @@ endfunction
 
 function! s:DeferUntilCommand(quoted)
     let FirstSpaceIdx = stridx(a:quoted, ' ')
-    let Events = strpart(a:quoted, 0, FirstSpaceIdx)
+    let Events = split(strpart(a:quoted, 0, FirstSpaceIdx), ',')
     let Command = strpart(a:quoted, FirstSpaceIdx + 1)
     return s:DeferCommandImpl(Events, Command)
 endfunction
@@ -50,7 +158,7 @@ endfunction
 " The command will be called after an event in the
 " 'g:DeferredEvents' set is triggered.
 command! -nargs=* Defer
-\ call DeferCommand(<q-args>, join(g:DeferredEvents))
+\ call DeferCommand(<q-args>, g:DeferredEvents)
 
 " Example:
 "
@@ -65,10 +173,12 @@ command! -nargs=* DeferUntil
 
 " Allow ':' to trigger deferred events.
 function! DeferColon()
-    doautocmd OnNormalModeColon *
+    doautocmd User OnNormalModeColon
     return ":"
 endfunction
 
 if strlen(maparg(':', 'n')) == 0
     nmap <expr>: DeferColon()
 endif
+
+
