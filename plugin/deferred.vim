@@ -113,23 +113,50 @@ let s:InternalAutocmdEvents = [
 
 " }}}
 
-function! s:DeferCommandImpl(events, command)
+function! s:SplitOnFirstSpace(string)
+    let FirstSpaceIdx = stridx(a:string, ' ')
+    let First = strpart(a:string, 0, FirstSpaceIdx)
+    let Rest = strpart(a:string, FirstSpaceIdx + 1)
+    return [First, Rest]
+endfunction
 
-    for event in events
+function! DeferredExecuteOnce(quoted)
 
-        let l:ID = s:DeferredCount
+    let Splat = s:SplitOnFirstSpace(a:quoted)
+
+    let ID = Splat[0]
+    let Command = Splat[1]
+
+    let VariableName = 'g:deferred_' . ID
+    if exists(VariableName)
+        return
+    endif
+
+    execute Command
+    execute "let " . VariableName . " = 1"
+
+endfunction
+
+function! s:DeferCommand(events, command)
+
+    let CommandID = s:DeferredCount
+
+    for Event in a:events
+
+        let GroupID = s:DeferredCount
         let s:DeferredCount += 1
 
         let MaybeUser = ''
-        if !count(s:InternalAutocmdEvents, event)
+        if !count(s:InternalAutocmdEvents, Event)
             let MaybeUser = 'User'
         endif
 
-        let GroupName = "Deferred_" . l:ID
-        let AutoCommand = MaybeUser . " " . event . " * " . Command
-        let DeleteCommand = join(['autocmd!', MaybeUser, GroupName, a:events, '*'], ' ')
+        let GroupName = "Deferred_" . GroupID
+        let AutoCommand =
+                    \ MaybeUser . " " . Event . " * " .
+                    \ 'DeferredExecuteOnce ' . CommandID . ' ' . a:command
 
-        echomsg AutoCommand
+        let DeleteCommand = 'autocmd! ' . GroupName . ' ' . Event
 
         execute "augroup " . GroupName
         execute "   autocmd!"
@@ -140,15 +167,12 @@ function! s:DeferCommandImpl(events, command)
 
 endfunction
 
-function! s:DeferCommand(command, events)
-    return s:DeferCommandImpl(a:events, a:command)
-endfunction
+command! -nargs=* DeferredExecuteOnce
+            \ call DeferredExecuteOnce(<q-args>)
 
 function! s:DeferUntilCommand(quoted)
-    let FirstSpaceIdx = stridx(a:quoted, ' ')
-    let Events = split(strpart(a:quoted, 0, FirstSpaceIdx), ',')
-    let Command = strpart(a:quoted, FirstSpaceIdx + 1)
-    return s:DeferCommandImpl(Events, Command)
+    let splat = s:SplitOnFirstSpace(a:quoted)
+    return s:DeferCommandImpl(split(splat[0], ','), splat[1])
 endfunction
 
 " Example:
@@ -158,7 +182,7 @@ endfunction
 " The command will be called after an event in the
 " 'g:DeferredEvents' set is triggered.
 command! -nargs=* Defer
-\ call DeferCommand(<q-args>, g:DeferredEvents)
+\ call <SID>DeferCommand(g:DeferredEvents, <q-args>)
 
 " Example:
 "
@@ -169,7 +193,7 @@ command! -nargs=* Defer
 " entered. The set of arguments should be specified as a
 " comma-delimited string with no spaces.
 command! -nargs=* DeferUntil
-\ call DeferUntilCommand(<q-args>)
+\ call <SID>DeferUntilCommand(<q-args>)
 
 " Allow ':' to trigger deferred events.
 function! DeferColon()
