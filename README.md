@@ -8,10 +8,9 @@ itself could open and render a little bit faster.
 
 # Wait, What?
 
-This plugin essentially provides a means for delaying the
-execution of certain commands until various `autocmd`
-events are fired. This means you can defer loading of
-heavy pieces until:
+This plugin provides a means for delaying the execution of
+a command until certain `autocmd` events are fired. This
+means you can attach one-time executions to events like:
 
 - The user types `:`,
 - The user enters insert mode,
@@ -22,11 +21,12 @@ And so on. The main utility gained relative to basic
 ensure each command is executed only once, rather than
 tying its execution to every event.
 
-# Usage
+# Usage and Motivation
 
-Here's how I'm using it right now, to lazily load some
-supplementary Vim scripts which take just a little bit too
-long to load at startup:
+This pluging was basically developed to provide a means
+for lazily sourcing a Vim script. Here's how I'm using it
+right now, to lazily load some supplementary Vim scripts
+which take just a little bit too long to load at startup:
 
 ```viml
 autocmd VimEnter * Defer
