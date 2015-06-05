@@ -17,6 +17,18 @@ endif
 let s:DeferredCount = 0
 let s:DeferredCommands = []
 
+function! s:Verbose(...)
+
+    if a:0 > 0
+        let Level = a:1
+    else
+        let Level = 0
+    endif
+
+    return exists('g:verbose') && g:verbose > Level
+
+endfunction
+
 " TODO: Populate this list dynamically.
 
 " Autocmd Events {{{
@@ -137,6 +149,11 @@ function! DeferredExecuteOnce(quoted)
 
 endfunction
 
+function! DeferredFunction(call)
+    let Command = ':call ' . call
+    Defer Command
+endfunction
+
 function! s:DeferCommand(events, command)
 
     let CommandID = s:DeferredCount
@@ -146,17 +163,28 @@ function! s:DeferCommand(events, command)
         let GroupID = s:DeferredCount
         let s:DeferredCount += 1
 
-        let MaybeUser = ''
-        if !count(s:InternalAutocmdEvents, Event)
-            let MaybeUser = 'User'
+        " TODO: Construct these in a neater way. There's a
+        " bunch of ugliness because user events and
+        " internal events are specified in a different
+        " way.
+        if count(s:InternalAutocmdEvents, Event)
+            let MaybeUser = ''
+            let EventString = Event . " * "
+        else
+            let MaybeUser = "User"
+            let EventString = "User " . Event . " "
         endif
 
         let GroupName = "Deferred_" . GroupID
-        let AutoCommand =
-                    \ MaybeUser . " " . Event . " * " .
+        let AutoCommand = EventString .
                     \ 'DeferredExecuteOnce ' . CommandID . ' ' . a:command
 
-        let DeleteCommand = 'autocmd! ' . GroupName . ' ' . Event
+        let DeleteCommand = 'autocmd! ' . GroupName . ' ' . MaybeUser . " " . Event
+
+        if s:Verbose()
+            echomsg "Deferring command: " . AutoCommand
+            echomsg "Killing with: " . DeleteCommand
+        endif
 
         execute "augroup " . GroupName
         execute "   autocmd!"
@@ -202,7 +230,7 @@ function! DeferColon()
 endfunction
 
 if strlen(maparg(':', 'n')) == 0
-    nmap <expr>: DeferColon()
+    nnoremap <expr>: DeferColon()
 endif
 
 
