@@ -2,6 +2,8 @@
 
 Defer the execution of Vim commands.
 
+![vim-deferred](https://github.com/kevinushey/vim-deferred/blob/17d6dc08d4377fd730c986bc5ed3f4c069de77b5/ext/vim-deferred.gif)
+
 This plugin was primarily made so I could source some
 particularly heavily Vim scripts 'lazily', so that Vim
 itself could open and render a little bit faster.
